@@ -1,6 +1,4 @@
-WA Proxy
-Version: 0.1.0
-Milestone: 0.1 — Local diagnostic listener
-Default endpoint: 127.0.0.1:8080
-Language standard: C++17
-Windows IDE target: Visual Studio 2022, MSVC v143, x64 Debug/Release
+WA Proxy v0.2.0
+
+Implemented: local loopback HTTP CONNECT proxy for direct HTTPS TCP tunnels.
+Not implemented: remote TLS transport, Linux VPS server, DNS-over-HTTPS, Windows GUI.

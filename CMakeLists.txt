@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(WAProxy VERSION 0.1.0 LANGUAGES CXX)
+project(WAProxy VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,7 +27,6 @@ else()
     target_compile_options(WAProxy PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 endif()
 
-# Make the example configuration available when running from the build directory.
 add_custom_command(TARGET WAProxy POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:WAProxy>/config"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

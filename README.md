@@ -1,43 +1,62 @@
-# WA Proxy — Version 0.1
+# WA Proxy v0.2.0
 
-**A local-only Windows diagnostic listener built with C++17.** Version 0.1 is the first implementation milestone, not the complete remote privacy proxy described in the long-term project plan.
+WA Proxy is a self-hosted, loopback-only Windows HTTP CONNECT proxy prototype written in C++17.
 
-## What works in v0.1
+## What v0.2 does
 
-- Binds only to `127.0.0.1` (loopback). The configuration loader rejects other bind addresses.
-- Defaults to TCP port `8080`; the port and operational limits are configurable.
-- Handles a bounded HTTP request and provides `GET /health` and `GET /` responses.
-- Explicitly returns HTTP `501 Not Implemented` for `CONNECT` requests.
-- Tracks accepted/rejected/active connections and bytes received/sent.
-- Writes timestamped console and file logs without recording request headers or destinations.
-- Handles Ctrl+C / Ctrl+Break and drains worker threads on normal shutdown.
-- Builds with Visual Studio 2022 (v143 toolset) or CMake 3.20+.
+- Listens on `127.0.0.1:8080` by default. It does not bind to LAN or public interfaces.
+- Accepts HTTP `CONNECT host:443` requests and opens a direct TCP connection to the destination.
+- Relays the HTTPS byte stream in both directions without decrypting or modifying TLS.
+- Performs DNS resolution on the Windows client using the operating system resolver.
+- Enforces a 443-only CONNECT port policy by default.
+- Exposes `GET /health`, connection counters, and timestamped logs.
+- Has connection limits, connect/request/idle timeouts, and Ctrl+C shutdown handling.
 
-## What does not work yet
+## What v0.2 does NOT do
 
-There is **no HTTP proxy forwarding**, no CONNECT tunnel, no TLS/OpenSSL transport, no remote VPS server, no DNS forwarding, no GUI, and no traffic-monitoring dashboard in v0.1. The app is a diagnostic listener only. A browser configured to use it as a proxy will not be able to browse through it yet.
+- It does not create an encrypted connection to a VPS. The client-to-destination TCP route is direct.
+- It does not hide destination IP addresses, DNS lookups, or the fact that a proxy is being used from the ISP/network operator.
+- It does not impersonate WhatsApp or make non-WhatsApp traffic appear to be WhatsApp traffic.
+- It does not provide DNS-over-HTTPS, a VPN, a GUI, UDP/QUIC proxying, or plain HTTP forwarding.
 
-## Quick start (Windows)
+The HTTPS connection between the browser and the website remains protected by the browser's normal TLS. The local proxy itself does not terminate that TLS session.
 
-1. Install Visual Studio 2022 with **Desktop development with C++** and a Windows 10/11 SDK.
-2. Open `WAProxy.sln`.
-3. Select `x64` and `Debug` or `Release`, then build.
-4. From the project root, run `bin\Release\WAProxy.exe` (or the Debug build path) after copying `config\config.example.json` to `config\config.json`.
-5. Test `http://127.0.0.1:8080/health` in a browser, or run the smoke test described in `docs/INSTALL.md`.
+## Build and run (Windows)
 
-See [BUILD.md](docs/BUILD.md), [INSTALL.md](docs/INSTALL.md), and [SECURITY.md](docs/SECURITY.md).
+See [docs/BUILD.md](docs/BUILD.md) and [docs/INSTALL.md](docs/INSTALL.md). A GitHub Actions workflow is included at `.github/workflows/build-windows.yml` to build with MSBuild on a Windows runner and upload a tested artifact.
 
-A ready-to-run Windows x64 Release build workflow is included at `.github/workflows/build-windows.yml`. Push the repository to GitHub and open **Actions** to download the `WAProxy-v0.1.0-Windows-x64` build artifact.
+After building, from the repository root:
 
-## Roadmap
+```powershell
+Copy-Item .\config\config.example.json .\config\config.json
+.\bin\Release\WAProxy.exe --config .\config\config.json
+```
 
-- **0.1:** Local diagnostic listener — implemented in this package.
-- **0.2:** Local HTTP CONNECT proxy — not included yet.
-- **0.3:** Authenticated encrypted remote transport — not included yet.
-- **0.4:** Linux VPS server — not included yet.
-- **0.5:** Windows GUI and monitoring — not included yet.
-- **1.0:** Integrated and security-tested application — future milestone.
+Check the health endpoint from another terminal:
 
-## Scope and naming
+```powershell
+curl.exe -i http://127.0.0.1:8080/health
+```
 
-“WA Proxy” is the project name only. This software does not impersonate WhatsApp, Facebook, or any other service. It cannot make arbitrary traffic appear to an ISP as genuine WhatsApp traffic. DNS changes, traffic labels, and protocol imitation do not guarantee destination masking.
+Use a browser's manual HTTP proxy setting `127.0.0.1`, port `8080`. The proxy supports HTTPS via CONNECT only. Stop it with Ctrl+C.
+
+## Test the tunnel
+
+The included smoke test starts a local TCP echo service on a temporary port, temporarily enables non-443 ports in a temporary test configuration, checks CONNECT 200, verifies bytes in both directions, tests `/health`, and tests shutdown:
+
+```powershell
+python .\scripts\smoke_test.py .\bin\Release\WAProxy.exe
+```
+
+For normal use leave `allow_non_443_ports` set to `false`.
+
+## Development roadmap
+
+- v0.1: diagnostic listener (completed).
+- v0.2: local direct HTTPS CONNECT forwarding (this release).
+- v0.3: authenticated TLS transport from client to remote endpoint.
+- v0.4: Linux VPS server with client authentication and DNS forwarding.
+- v0.5: Windows GUI, status, and monitoring.
+- v1.0: integrated release and security testing.
+
+Do not treat a future stage as implemented until its tests and release artifacts exist.

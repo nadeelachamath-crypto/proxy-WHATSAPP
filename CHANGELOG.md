@@ -1,11 +1,20 @@
 # Changelog
 
-## 0.1.0 — Initial diagnostic milestone
+## v0.2.0 — 2026-11-11
 
-- Added loopback-only Winsock/POSIX TCP listener.
-- Added configurable port, request bounds, connection limit, and log path.
-- Added `GET /health` and `GET /` diagnostic endpoints.
-- Added explicit HTTP 501 response for CONNECT requests.
-- Added connection and byte counters, timestamped logs, and graceful Ctrl+C shutdown.
-- Added Visual Studio 2022 x64 Debug/Release project and CMake build.
-- Added installation, build, security, and verification documentation plus a smoke-test script.
+- Implemented local HTTP CONNECT tunneling for TCP port 443.
+- Added outbound destination resolution and bounded TCP connect timeout.
+- Added bidirectional tunnel relay, half-close handling, and idle timeout.
+- Kept listener restricted to `127.0.0.1`.
+- Added default CONNECT port 443 restriction; non-443 mode exists only for controlled local tests.
+- Expanded health output, logs, and smoke test.
+- Added Windows GitHub Actions build/test/artifact workflow.
+- Remote TLS and Linux VPS remain future milestones (not implemented in this release).
+
+## v0.1.1
+
+- Fixed MSVC C4996 warning in IPv4 peer-address fallback.
+
+## v0.1.0
+
+- Initial loopback diagnostic listener.
