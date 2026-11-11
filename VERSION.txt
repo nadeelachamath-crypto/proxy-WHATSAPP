@@ -1,0 +1,6 @@
+WA Proxy
+Version: 0.1.0
+Milestone: 0.1 — Local diagnostic listener
+Default endpoint: 127.0.0.1:8080
+Language standard: C++17
+Windows IDE target: Visual Studio 2022, MSVC v143, x64 Debug/Release
