@@ -1,0 +1,59 @@
+name: Build WA Proxy Windows x64
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Build with MSVC (x64 Release)
+    runs-on: windows-2022
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Release x64
+        shell: pwsh
+        run: |
+          msbuild .\WAProxy.sln /m /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'bin\Release\WAProxy.exe'
+          if (-not (Test-Path $exe)) {
+            throw "Build reported success but executable was not found at $exe"
+          }
+          & $exe --help
+          if ($LASTEXITCODE -ne 0) {
+            throw "WAProxy.exe --help failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Create distributable package
+        shell: pwsh
+        run: |
+          $stage = Join-Path $PWD 'dist\WAProxy-Windows-v0.1.0-x64'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item 'bin\Release\WAProxy.exe' $stage
+          Copy-Item 'config\config.example.json' (Join-Path $stage 'config.example.json')
+          Copy-Item 'README.md' $stage
+          Copy-Item 'LICENSE' $stage
+          Copy-Item 'docs\INSTALL.md' (Join-Path $stage 'INSTALL.md')
+          Copy-Item 'docs\SECURITY.md' (Join-Path $stage 'SECURITY.md')
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath (Join-Path $PWD 'dist\WAProxy-Windows-v0.1.0-x64.zip') -Force
+
+      - name: Upload Windows executable and ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: WAProxy-v0.1.0-Windows-x64
+          path: |
+            bin/Release/WAProxy.exe
+            dist/WAProxy-Windows-v0.1.0-x64.zip
+          if-no-files-found: error
