@@ -25,7 +25,7 @@ jobs:
             & "$vcpkgRoot/bootstrap-vcpkg.bat" -disableMetrics
           }
           "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
-          & "$vcpkgRoot/vcpkg.exe" install openssl:x64-windows-static
+          & "$vcpkgRoot/vcpkg.exe" install --triplet x64-windows-static
 
       - name: Configure CMake x64
         shell: pwsh
