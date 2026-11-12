@@ -1,0 +1,114 @@
+name: WA Proxy v1.0 Windows + Linux release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure vcpkg dependency
+        shell: pwsh
+        run: |
+          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          if (!$vcpkgRoot -or !(Test-Path "$vcpkgRoot/scripts/buildsystems/vcpkg.cmake")) {
+            $vcpkgRoot = "$env:RUNNER_TEMP/vcpkg"
+            git clone --depth 1 https://github.com/microsoft/vcpkg $vcpkgRoot
+            & "$vcpkgRoot/bootstrap-vcpkg.bat" -disableMetrics
+          }
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
+          & "$vcpkgRoot/vcpkg.exe" install openssl:x64-windows-static
+
+      - name: Configure CMake x64
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static
+
+      - name: Build Release
+        run: cmake --build build --config Release --parallel
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Test Windows local proxy
+        shell: pwsh
+        run: |
+          python tests/test_remote_tls_default.py build/Release/WAProxy.exe
+          python tests/smoke_proxy.py build/Release/WAProxy.exe
+
+      - name: Stage and verify
+        shell: pwsh
+        run: |
+          cmake --install build --config Release --prefix stage
+          if (!(Test-Path "stage/WAProxy.exe")) { throw "WAProxy.exe missing" }
+          if (!(Test-Path "stage/WAProxyGUI.exe")) { throw "WAProxyGUI.exe missing" }
+          if (!(Test-Path "stage/config/client.example.json")) { throw "Client config missing" }
+          if (Test-Path "stage/config/server.example.json") { Remove-Item "stage/config/server.example.json" }
+          New-Item -ItemType Directory -Force stage/certs | Out-Null
+          Copy-Item README.md, LICENSE, docs/BUILD_VERIFICATION.md stage/
+          Copy-Item docs/CLIENT_SETUP.md stage/CLIENT_SETUP.md
+          Copy-Item docs/SECURITY.md stage/SECURITY.md
+          New-Item -ItemType Directory -Force stage/scripts | Out-Null
+          Copy-Item client/scripts/create-client-csr.ps1 stage/scripts/create-client-csr.ps1
+
+      - name: Upload Windows x64 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: WAProxy-v1.0.0-Windows-x64
+          path: stage/
+          if-no-files-found: error
+          retention-days: 30
+
+  linux-vps:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libssl-dev
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build Linux client, VPS server and TLS relay regression test
+        run: cmake --build build --target WAProxy WAPServer WAProxyRelayTest --parallel
+      - name: Test default fail-closed configuration and local CONNECT relay
+        run: |
+          python3 tests/test_remote_tls_default.py build/WAProxy
+          python3 tests/smoke_proxy.py build/WAProxy
+      - name: Test mutual TLS server and fail-closed client
+        run: |
+          python3 tests/test_mtls_server.py build/WAPServer
+          python3 tests/test_remote_client_failclosed.py build/WAProxy build/WAPServer
+      - name: Test TLS bidirectional relay and close-notify
+        run: python3 tests/test_tls_relay.py build/WAProxyRelayTest
+      - name: Stage and verify
+        run: |
+          cmake --install build --prefix stage
+          test -x stage/WAPServer
+          rm -f stage/WAProxy
+          rm -f stage/config/client.example.json
+          mkdir -p stage/server/scripts
+          cp server/scripts/*.sh stage/server/scripts/
+          cp server/waproxy.service stage/server/
+          cp README.md LICENSE docs/VPS_SETUP.md docs/VPS_PACKAGE_INSTALL.md docs/SECURITY.md docs/BUILD_VERIFICATION.md stage/
+          test -f stage/server/waproxy.service
+          test -f stage/config/server.example.json
+      - name: Upload Linux VPS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: WAProxy-v1.0.0-Linux-VPS
+          path: stage/
+          if-no-files-found: error
+          retention-days: 30
