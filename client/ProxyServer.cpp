@@ -1,6 +1,4 @@
 #include "ProxyServer.h"
-#include "RemoteTls.h"
-#include "../common/TlsRelay.h"
 
 #include <algorithm>
 #include <array>
@@ -499,14 +497,9 @@ int ProxyServer::Run(const std::atomic_bool& shutdown_requested) {
     workers_.reserve(static_cast<std::size_t>(config_.max_connections) + 1U);
     if (!OpenListener()) return 1;
 
-    logger_.Info("WA Proxy v1.0.0 started at " + config_.listen_address + ":" +
+    logger_.Info("WA Proxy v0.2.0 started at " + config_.listen_address + ":" +
                  std::to_string(config_.port) + ". HTTP CONNECT forwarding is enabled.");
-    if (config_.remote_tls_enabled) {
-        logger_.Info("Mutual-TLS VPS mode is enabled. Destination hostnames are sent inside TLS; failures do not fall back to direct mode.");
-    } else {
-        logger_.Warn("Direct mode is enabled. Destination DNS and TCP connections use this PC's network and may be visible to its ISP.");
-    }
-    logger_.Info("Local-only listener: only processes on this PC can connect.");
+    logger_.Info("Local-only listener: only processes on this PC can connect. Direct mode resolves DNS locally.");
 
     while (!stop_requested_.load(std::memory_order_relaxed) &&
            !shutdown_requested.load(std::memory_order_relaxed)) {
@@ -658,11 +651,11 @@ void ProxyServer::HandleClient(WaSocket client_socket, const std::string& peer,
         std::ostringstream body;
         body << "{\n"
              << "  \"application\": \"WA Proxy\",\n"
-             << "  \"version\": \"1.0.0\",\n"
+             << "  \"version\": \"0.2.0\",\n"
              << "  \"status\": \"ok\",\n"
-             << "  \"mode\": \"" << (config_.remote_tls_enabled ? "mutual-tls-vps-proxy" : "local-direct-connect-proxy") << "\",\n"
+             << "  \"mode\": \"local-direct-connect-proxy\",\n"
              << "  \"connect_tunneling\": true,\n"
-             << "  \"remote_tls\": " << (config_.remote_tls_enabled ? "true" : "false") << ",\n"
+             << "  \"remote_tls\": false,\n"
              << "  \"accepted_connections\": " << stats.accepted_connections << ",\n"
              << "  \"active_connections\": " << stats.active_connections << ",\n"
              << "  \"bytes_received\": " << stats.bytes_received << ",\n"
@@ -677,7 +670,7 @@ void ProxyServer::HandleClient(WaSocket client_socket, const std::string& peer,
     if (method != "CONNECT") {
         const auto response = MakeHttpResponse(501, "Not Implemented",
                                                "text/plain; charset=utf-8",
-                                               "WA Proxy v1.0 supports HTTPS CONNECT only.\n");
+                                               "WA Proxy v0.2 supports HTTPS CONNECT only.\n");
         SendHttpResponse(client_socket, response, connections_);
         logger_.Info("Returned HTTP 501 to " + peer + " for a non-CONNECT request.");
         return;
@@ -700,69 +693,40 @@ void ProxyServer::HandleClient(WaSocket client_socket, const std::string& peer,
         return;
     }
 
-    RemoteTlsSession remote_tls;
     std::string connect_error;
-    if (config_.remote_tls_enabled) {
-        if (!remote_tls.Open(config_, host, port, connect_error)) {
-            const auto response = MakeHttpResponse(502, "Bad Gateway", "text/plain; charset=utf-8",
-                                                   "Could not establish the authenticated remote TLS tunnel.\n");
-            SendHttpResponse(client_socket, response, connections_);
-            logger_.Warn("Remote TLS tunnel setup failed for local peer " + peer + ": " + connect_error + ".");
-            return; // Fail closed: never fall back to a direct connection.
-        }
-    } else {
-        upstream_socket = ConnectTarget(host, port, config_.connect_timeout_ms, connect_error);
-        if (upstream_socket == WA_INVALID_SOCKET) {
-            const auto response = MakeHttpResponse(502, "Bad Gateway", "text/plain; charset=utf-8",
-                                                   "Could not connect to the requested upstream destination.\n");
-            SendHttpResponse(client_socket, response, connections_);
-            logger_.Warn("CONNECT upstream failed for local peer " + peer + ": " + connect_error + ".");
-            return;
-        }
+    upstream_socket = ConnectTarget(host, port, config_.connect_timeout_ms, connect_error);
+    if (upstream_socket == WA_INVALID_SOCKET) {
+        const auto response = MakeHttpResponse(502, "Bad Gateway", "text/plain; charset=utf-8",
+                                               "Could not connect to the requested upstream destination.\n");
+        SendHttpResponse(client_socket, response, connections_);
+        logger_.Warn("CONNECT upstream failed for local peer " + peer + ": " + connect_error + ".");
+        return;
     }
 
     static const std::string established =
         "HTTP/1.1 200 Connection Established\r\n"
-        "Proxy-Agent: WAProxy/1.0.0\r\n"
+        "Proxy-Agent: WAProxy/0.2.0\r\n"
         "Connection: keep-alive\r\n\r\n";
     if (!SendHttpResponse(client_socket, established, connections_)) {
         logger_.Warn("Could not send CONNECT success response to " + peer + ".");
         return;
     }
-    logger_.Info(config_.remote_tls_enabled
-        ? "Established authenticated TLS-to-VPS tunnel (destination omitted from logs) for " + peer + "."
-        : "Established direct HTTPS CONNECT tunnel (destination omitted from logs) for " + peer + ".");
+    logger_.Info("Established direct HTTPS CONNECT tunnel (destination omitted from logs) for " + peer + ".");
 
-    // Preserve bytes received after the CONNECT headers before the 200 response.
+    // Preserve any bytes received after the CONNECT headers before the 200 response.
     const std::size_t body_offset = header_end + 4U;
     if (request.size() > body_offset) {
         const std::size_t extra_size = request.size() - body_offset;
-        if (config_.remote_tls_enabled) {
-            std::string write_error;
-            if (!remote_tls.WriteAll(request.data() + body_offset, extra_size, write_error)) {
-                logger_.Warn("Could not forward buffered client data into TLS tunnel: " + write_error + ".");
-                return;
-            }
-        } else if (!SendAll(upstream_socket, request.data() + body_offset, extra_size)) {
-            return;
-        }
+        if (!SendAll(upstream_socket, request.data() + body_offset, extra_size)) return;
     }
 
-    bool relay_ok = false;
-    std::string relay_reason;
-    if (config_.remote_tls_enabled) {
-        wa::RelayStats relay_stats;
-        relay_ok = wa::RelayTlsAndSocket(remote_tls.GetSsl(), client_socket,
-                                         config_.tunnel_idle_timeout_ms,
-                                         stop_requested_, relay_stats, relay_reason);
-        connections_.AddBytesReceived(relay_stats.plain_to_tls);
-        connections_.AddBytesSent(relay_stats.tls_to_plain);
+    const bool relay_ok = RelayTunnel(client_socket, upstream_socket, config_, connections_,
+                                      stop_requested_, shutdown_requested);
+    if (!relay_ok) {
+        logger_.Info("HTTPS CONNECT tunnel closed (peer disconnect, idle timeout, or shutdown) for " + peer + ".");
     } else {
-        relay_ok = RelayTunnel(client_socket, upstream_socket, config_, connections_,
-                               stop_requested_, shutdown_requested);
-        relay_reason = relay_ok ? "completed" : "peer disconnect, idle timeout, or shutdown";
+        logger_.Info("HTTPS CONNECT tunnel completed for " + peer + ".");
     }
-    logger_.Info("HTTPS CONNECT tunnel closed for " + peer + " (" + relay_reason + ").");
 }
 
 void ProxyServer::ReapFinishedWorkers(bool join_all) {

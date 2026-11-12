@@ -40,15 +40,15 @@ void SignalHandler(int) {
 #endif
 
 void PrintUsage() {
-    std::cout << "WA Proxy v1.0.0 - authenticated TLS/VPS proxy\n\n"
+    std::cout << "WA Proxy v0.2.0 - local HTTPS CONNECT proxy\n\n"
               << "Usage: WAProxy.exe [--config PATH] [--help]\n\n"
               << "Default endpoint: 127.0.0.1:8080\n"
-              << "Supports HTTPS CONNECT with optional mutual-TLS VPS transport. Remote mode fails closed.\n";
+              << "Supports direct HTTPS CONNECT on port 443. Remote TLS/VPS mode is not included yet.\n";
 }
 } // namespace
 
 int main(int argc, char* argv[]) {
-    std::string config_path = "config/client.json";
+    std::string config_path = "config/config.json";
     for (int index = 1; index < argc; ++index) {
         const std::string argument = argv[index];
         if (argument == "--help" || argument == "-h") {
@@ -71,16 +71,14 @@ int main(int argc, char* argv[]) {
     try {
         bool loaded_from_file = false;
         const AppConfig config = AppConfig::LoadFromFile(config_path, loaded_from_file);
-        if (!loaded_from_file) {
-            throw std::runtime_error("Client configuration not found. Copy config/client.example.json to config/client.json, then fill in the VPS and certificate settings. WA Proxy will not silently start in direct mode.");
-        }
         Logger logger(config.log_file);
         std::string logger_error;
         if (!logger.Initialize(logger_error)) {
             std::cerr << "Warning: " << logger_error << " (continuing with console logging only).\n";
         }
-        logger.Info("WA Proxy v1.0.0 starting.");
-        logger.Info("Loaded configuration from " + config_path + ".");
+        logger.Info("WA Proxy v0.2.0 starting.");
+        if (loaded_from_file) logger.Info("Loaded configuration from " + config_path + ".");
+        else logger.Warn("Configuration file not found; using built-in defaults. Expected: " + config_path);
 
 #ifdef _WIN32
         if (!SetConsoleCtrlHandler(ConsoleHandler, TRUE)) logger.Warn("Could not register the Windows console shutdown handler.");

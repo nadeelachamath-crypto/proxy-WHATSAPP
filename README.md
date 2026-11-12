@@ -1,61 +1,62 @@
-# WA Proxy v1.0.0
+# WA Proxy v0.2.0
 
-WA Proxy is a self-hosted HTTPS CONNECT proxy with an optional authenticated TLS transport to a Linux VPS. The Windows client accepts browser proxy connections on `127.0.0.1:8080`. In remote mode, it opens a mutual-TLS connection to the configured VPS, sends the destination authority inside the encrypted channel, and the VPS resolves the destination and forwards TCP to destination port 443.
+WA Proxy is a self-hosted, loopback-only Windows HTTP CONNECT proxy prototype written in C++17.
 
-**WA Proxy is not WhatsApp, does not impersonate WhatsApp, and cannot make other traffic become genuine WhatsApp traffic.** It is a normal proxy with a TLS-protected client-to-VPS hop.
+## What v0.2 does
 
-## Components
+- Listens on `127.0.0.1:8080` by default. It does not bind to LAN or public interfaces.
+- Accepts HTTP `CONNECT host:443` requests and opens a direct TCP connection to the destination.
+- Relays the HTTPS byte stream in both directions without decrypting or modifying TLS.
+- Performs DNS resolution on the Windows client using the operating system resolver.
+- Enforces a 443-only CONNECT port policy by default.
+- Exposes `GET /health`, connection counters, and timestamped logs.
+- Has connection limits, connect/request/idle timeouts, and Ctrl+C shutdown handling.
 
-- `WAProxy.exe`: Windows console client.
-- `WAProxyGUI.exe`: Windows desktop control panel with Start/Stop, status, endpoint and connection counters.
-- `WAPServer`: Linux VPS relay server.
-- Mutual TLS: the Windows client verifies the VPS certificate; the VPS requires and verifies a client certificate.
-- Remote DNS: destination hostnames are sent inside TLS and resolved by the VPS system resolver.
-- Fail closed: with `remote_tls_enabled: true`, a failed VPS/TLS connection returns 502. The client never silently falls back to a direct destination connection.
-- Destination restrictions: VPS relays only TCP port 443 and rejects private, loopback, link-local, multicast and reserved destination addresses.
+## What v0.2 does NOT do
 
-## Quick start
+- It does not create an encrypted connection to a VPS. The client-to-destination TCP route is direct.
+- It does not hide destination IP addresses, DNS lookups, or the fact that a proxy is being used from the ISP/network operator.
+- It does not impersonate WhatsApp or make non-WhatsApp traffic appear to be WhatsApp traffic.
+- It does not provide DNS-over-HTTPS, a VPN, a GUI, UDP/QUIC proxying, or plain HTTP forwarding.
 
-1. Build the Linux VPS relay and Windows client. See `docs/BUILD.md`.
-2. Set up certificates and the VPS. See `docs/VPS_SETUP.md`.
-3. Create the Windows client certificate locally and have the VPS sign its CSR. See `docs/CLIENT_SETUP.md`.
-4. Copy `config/client.example.json` to `config/client.json`, set the VPS address and certificate paths, and keep `remote_tls_enabled` set to `true`. Remote TLS is now the default; direct mode requires an explicit opt-out.
-5. Start `WAProxyGUI.exe` and click **Start Proxy**, or run `WAProxy.exe --config config/client.json`.
-6. Configure an application/browser to use HTTP proxy `127.0.0.1`, port `8080`.
-7. Test with `curl.exe -v -x http://127.0.0.1:8080 https://example.com/`.
+The HTTPS connection between the browser and the website remains protected by the browser's normal TLS. The local proxy itself does not terminate that TLS session.
 
-For Windows client packaging, GitHub Actions publishes `WAProxy-v1.0.0-Windows-x64` with both the console client and GUI. For Linux, it publishes `WAProxy-v1.0.0-Linux-VPS` from an Ubuntu 22.04 build runner for compatibility with Ubuntu 22.04/24.04 VPS hosts. The VPS artifact includes `WAPServer`, its config template, PKI scripts and systemd unit; see `VPS_PACKAGE_INSTALL.md`.
+## Build and run (Windows)
 
-## Build and verification status
+See [docs/BUILD.md](docs/BUILD.md) and [docs/INSTALL.md](docs/INSTALL.md). A GitHub Actions workflow is included at `.github/workflows/build-windows.yml` to build with MSBuild on a Windows runner and upload a tested artifact.
 
-The C++ client and Linux server build with GCC 14 and OpenSSL 3 in this development environment. Actual MSVC compilation and the Win32 GUI runtime must be verified by the included Windows GitHub Actions job or on a Windows 10/11 machine. Do not treat a Linux-built binary as a Windows executable.
+After building, from the repository root:
 
-See `docs/BUILD_VERIFICATION.md` for the current checks and remaining Windows-only verification. See `docs/GITHUB_BUILD.md` for exact steps to generate both release artifacts on GitHub Actions.
-
-## Privacy boundaries
-
-With remote TLS enabled and valid certificates, the user's ISP generally sees the connection to the VPS IP, TLS metadata, packet sizes, timing and total traffic. It does not see the CONNECT destination hostname or destination DNS lookup inside this application tunnel. The VPS and its resolver can see destination DNS queries, and destination websites see the VPS public IP. A DNS lookup for a VPS hostname occurs locally; using the VPS numeric IP in `remote_host` avoids that lookup. Browser prefetch, DoH, other apps, and traffic not configured to use this proxy may follow separate network paths.
-
-The proxy does not create a full-device VPN, route all Windows traffic, guarantee anonymity, or change application traffic classification. HTTPS content remains end-to-end encrypted by the browser with the destination website; WA Proxy does not decrypt it.
-
-## Project structure
-
-```text
-WAProxy/
-  client/       Windows local CONNECT proxy, TLS client and GUI
-  common/       socket utilities and single-threaded TLS relay loop
-  server/       Linux mutual-TLS VPS relay
-  config/       example client/server configuration
-  docs/         build, install, security and setup instructions
-  tests/        local, mTLS, fail-closed and TLS relay integration tests
-  resources/    application icon and Win32 resources
-  .github/      Windows/Linux GitHub Actions builds
-  CMakeLists.txt
-  CMakePresets.json
-  vcpkg.json
-  WAProxy.sln
+```powershell
+Copy-Item .\config\config.example.json .\config\config.json
+.\bin\Release\WAProxy.exe --config .\config\config.json
 ```
 
-## License
+Check the health endpoint from another terminal:
 
-MIT. See `LICENSE`.
+```powershell
+curl.exe -i http://127.0.0.1:8080/health
+```
+
+Use a browser's manual HTTP proxy setting `127.0.0.1`, port `8080`. The proxy supports HTTPS via CONNECT only. Stop it with Ctrl+C.
+
+## Test the tunnel
+
+The included smoke test starts a local TCP echo service on a temporary port, temporarily enables non-443 ports in a temporary test configuration, checks CONNECT 200, verifies bytes in both directions, tests `/health`, and tests shutdown:
+
+```powershell
+python .\scripts\smoke_test.py .\bin\Release\WAProxy.exe
+```
+
+For normal use leave `allow_non_443_ports` set to `false`.
+
+## Development roadmap
+
+- v0.1: diagnostic listener (completed).
+- v0.2: local direct HTTPS CONNECT forwarding (this release).
+- v0.3: authenticated TLS transport from client to remote endpoint.
+- v0.4: Linux VPS server with client authentication and DNS forwarding.
+- v0.5: Windows GUI, status, and monitoring.
+- v1.0: integrated release and security testing.
+
+Do not treat a future stage as implemented until its tests and release artifacts exist.

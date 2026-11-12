@@ -1,24 +1,18 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 18
-VisualStudioVersion = 18.0.0.0
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "WAProxy", "client\WAProxy.vcxproj", "{45FB1C14-9FE8-4C1F-92D1-2F8D58F1AA10}"
-EndProject
-Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "WAProxyGUI", "client\WAProxyGUI.vcxproj", "{E1F5C0DE-AC1F-4DB8-9D27-9C9B5C33F110}"
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "WAProxy", "client\WAProxy.vcxproj", "{7E50BBE7-4EE7-4A68-9ED7-4D94C820F0A1}"
 EndProject
 Global
-    GlobalSection(SolutionConfigurationPlatforms) = preSolution
-        Debug|x64 = Debug|x64
-        Release|x64 = Release|x64
-    EndGlobalSection
-    GlobalSection(ProjectConfigurationPlatforms) = postSolution
-        {45FB1C14-9FE8-4C1F-92D1-2F8D58F1AA10}.Debug|x64.ActiveCfg = Debug|x64
-        {45FB1C14-9FE8-4C1F-92D1-2F8D58F1AA10}.Debug|x64.Build.0 = Debug|x64
-        {45FB1C14-9FE8-4C1F-92D1-2F8D58F1AA10}.Release|x64.ActiveCfg = Release|x64
-        {45FB1C14-9FE8-4C1F-92D1-2F8D58F1AA10}.Release|x64.Build.0 = Release|x64
-        {E1F5C0DE-AC1F-4DB8-9D27-9C9B5C33F110}.Debug|x64.ActiveCfg = Debug|x64
-        {E1F5C0DE-AC1F-4DB8-9D27-9C9B5C33F110}.Debug|x64.Build.0 = Debug|x64
-        {E1F5C0DE-AC1F-4DB8-9D27-9C9B5C33F110}.Release|x64.ActiveCfg = Release|x64
-        {E1F5C0DE-AC1F-4DB8-9D27-9C9B5C33F110}.Release|x64.Build.0 = Release|x64
-    EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7E50BBE7-4EE7-4A68-9ED7-4D94C820F0A1}.Debug|x64.ActiveCfg = Debug|x64
+		{7E50BBE7-4EE7-4A68-9ED7-4D94C820F0A1}.Debug|x64.Build.0 = Debug|x64
+		{7E50BBE7-4EE7-4A68-9ED7-4D94C820F0A1}.Release|x64.ActiveCfg = Release|x64
+		{7E50BBE7-4EE7-4A68-9ED7-4D94C820F0A1}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
 EndGlobal

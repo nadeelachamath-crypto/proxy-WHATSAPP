@@ -3,13 +3,21 @@
 #include "Config.h"
 #include "ConnectionManager.h"
 #include "Logger.h"
-#include "../common/Socket.h"
 
 #include <atomic>
 #include <memory>
 #include <string>
 #include <thread>
 #include <vector>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+    using WaSocket = SOCKET;
+    constexpr WaSocket WA_INVALID_SOCKET = INVALID_SOCKET;
+#else
+    using WaSocket = int;
+    constexpr WaSocket WA_INVALID_SOCKET = -1;
+#endif
 
 class ProxyServer {
 public:
