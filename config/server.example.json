@@ -1,0 +1,11 @@
+{
+  "bind_address": "0.0.0.0",
+  "port": 8443,
+  "server_certificate": "certs/server.crt",
+  "server_private_key": "certs/server.key",
+  "client_ca_certificate": "certs/ca.crt",
+  "max_connections": 128,
+  "connect_timeout_ms": 8000,
+  "tls_handshake_timeout_ms": 10000,
+  "tunnel_idle_timeout_ms": 300000
+}

@@ -1,0 +1,18 @@
+{
+  "listen_address": "127.0.0.1",
+  "port": 8080,
+  "log_file": "logs/wa-proxy.log",
+  "max_connections": 64,
+  "request_timeout_ms": 5000,
+  "max_request_bytes": 16384,
+  "connect_timeout_ms": 8000,
+  "tunnel_idle_timeout_ms": 300000,
+  "allow_non_443_ports": false,
+  "remote_tls_enabled": true,
+  "remote_host": "YOUR_VPS_PUBLIC_IP_OR_HOSTNAME",
+  "remote_port": 8443,
+  "remote_server_name": "proxy.example.net",
+  "ca_certificate": "certs/ca.crt",
+  "client_certificate": "certs/client.crt",
+  "client_private_key": "certs/client.key"
+}

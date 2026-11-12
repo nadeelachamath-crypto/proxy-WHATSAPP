@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files"><UniqueIdentifier>{A8B4EE80-9D38-4BFA-9F67-8F230E0E0A1F}</UniqueIdentifier><Extensions>cpp;c;cc;cxx</Extensions></Filter>
+    <Filter Include="Header Files"><UniqueIdentifier>{6CF6AE3A-AC5F-476A-9DD8-80BD6D1BD129}</UniqueIdentifier><Extensions>h;hh;hpp;hxx</Extensions></Filter>
+    <Filter Include="Common Source"><UniqueIdentifier>{3B2D3BAF-8D32-4870-A1B1-151E0AF6CDA3}</UniqueIdentifier></Filter>
+    <Filter Include="Common Headers"><UniqueIdentifier>{D0C131B2-6FB9-460F-B0E7-8EA3B67B8A10}</UniqueIdentifier></Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Config.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Logger.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="ConnectionManager.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="ProxyServer.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="RemoteTls.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\common\Socket.cpp"><Filter>Common Source</Filter></ClCompile>
+    <ClCompile Include="..\common\TlsRelay.cpp"><Filter>Common Source</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Config.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Logger.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="ConnectionManager.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="ProxyServer.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="RemoteTls.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\common\Socket.h"><Filter>Common Headers</Filter></ClInclude>
+    <ClInclude Include="..\common\TlsRelay.h"><Filter>Common Headers</Filter></ClInclude>
+  </ItemGroup>
+</Project>
